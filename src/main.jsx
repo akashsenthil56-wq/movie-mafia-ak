@@ -1,283 +1,1248 @@
-import React,{useEffect,useMemo,useState} from "react";
-import {createRoot} from "react-dom/client";
-import {Search,SlidersHorizontal,Play,Heart,Plus,Star,Compass,Languages,Clapperboard,X,Film} from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  Search,
+  Heart,
+  Play,
+  X,
+  Star,
+  ChevronDown,
+  Loader2,
+  Plus,
+  Clapperboard,
+} from "lucide-react";
 import "./styles.css";
 
-// Put your TMDB API Read Access Token in .env:
-// VITE_TMDB_TOKEN=your_token_here
-const TMDB_TOKEN = import.meta.env.VITE_TMDB_TOKEN || "";
-const IMG="https://image.tmdb.org/t/p/w500";
+/* =========================================================
+   TMDB CONFIG
+========================================================= */
 
-const languages=[
-  ["All","all"],["Tamil","ta"],["Telugu","te"],["Hindi","hi"],["Malayalam","ml"],["Kannada","kn"],
-  ["English","en"],["Korean","ko"],["Japanese","ja"],["Chinese","zh"],["Spanish","es"],["French","fr"],["Other","other"]
+const TMDB_TOKEN = import.meta.env.VITE_TMDB_TOKEN || "";
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w500";
+
+/* =========================================================
+   LANGUAGE LIST
+========================================================= */
+
+const LANGUAGES = [
+  { name: "All Languages", code: "all" },
+  { name: "Tamil", code: "ta" },
+  { name: "Telugu", code: "te" },
+  { name: "Hindi", code: "hi" },
+  { name: "Malayalam", code: "ml" },
+  { name: "Kannada", code: "kn" },
+  { name: "English", code: "en" },
+  { name: "Korean", code: "ko" },
+  { name: "Japanese", code: "ja" },
+  { name: "Chinese", code: "zh" },
+  { name: "Spanish", code: "es" },
+  { name: "French", code: "fr" },
+  { name: "Other", code: "other" },
 ];
 
-const genres=["All","Action","Adventure","Animation","Comedy","Crime","Drama","Fantasy","Horror","Mystery","Romance","Sci-Fi","Thriller"];
+/* =========================================================
+   GENRE LIST
+========================================================= */
 
-const genreIds={
-  Action:28,Adventure:12,Animation:16,Comedy:35,Crime:80,Drama:18,Fantasy:14,
-  Horror:27,Mystery:9648,Romance:10749,"Sci-Fi":878,Thriller:53
+const GENRES = [
+  { name: "All Genres", id: "all" },
+  { name: "Action", id: 28 },
+  { name: "Adventure", id: 12 },
+  { name: "Animation", id: 16 },
+  { name: "Comedy", id: 35 },
+  { name: "Crime", id: 80 },
+  { name: "Drama", id: 18 },
+  { name: "Fantasy", id: 14 },
+  { name: "Horror", id: 27 },
+  { name: "Mystery", id: 9648 },
+  { name: "Romance", id: 10749 },
+  { name: "Sci-Fi", id: 878 },
+  { name: "Thriller", id: 53 },
+];
+
+/* =========================================================
+   LANGUAGE NAME HELPER
+========================================================= */
+
+const languageName = (code) => {
+  const found = LANGUAGES.find((item) => item.code === code);
+
+  if (found && found.code !== "all" && found.code !== "other") {
+    return found.name;
+  }
+
+  return code ? code.toUpperCase() : "Unknown";
 };
 
-const languageNames=Object.fromEntries(languages.slice(1).map(([name,code])=>[code,name]));
+/* =========================================================
+   GENRE NAME HELPER
+========================================================= */
 
-const demo=[
- {id:1,title:"Jailer",year:"2023",lang:"Tamil",genre:"Action",rating:"7.1",img:"https://image.tmdb.org/t/p/w500/7CNCv4g0Yp8q9l1rQq0KfH8oH8.jpg",tag:"Mass"},
- {id:2,title:"RRR",year:"2022",lang:"Telugu",genre:"Action",rating:"7.8",img:"https://image.tmdb.org/t/p/w500/soV3f8e8Yx7m8r0M3d3Q5z5r2.jpg",tag:"Epic"},
- {id:3,title:"Manjummel Boys",year:"2024",lang:"Malayalam",genre:"Drama",rating:"8.0",img:"https://image.tmdb.org/t/p/w500/8Q0qQf0Q1J3e4M8G7H5K2V4D3.jpg",tag:"Trending"},
- {id:4,title:"12th Fail",year:"2023",lang:"Hindi",genre:"Drama",rating:"8.2",img:"https://image.tmdb.org/t/p/w500/5f9d3Qyq2k1X7m8H4p5V6c2B1.jpg",tag:"Must Watch"},
- {id:5,title:"The Dark Knight",year:"2008",lang:"English",genre:"Action",rating:"9.0",img:"https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg",tag:"Classic"},
- {id:6,title:"Parasite",year:"2019",lang:"Korean",genre:"Thriller",rating:"8.5",img:"https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",tag:"Awarded"},
- {id:7,title:"Your Name",year:"2016",lang:"Japanese",genre:"Animation",rating:"8.4",img:"https://image.tmdb.org/t/p/w500/q719jXXEzOoYaps6babgKnONONX.jpg",tag:"Anime"},
- {id:8,title:"Dangal",year:"2016",lang:"Hindi",genre:"Drama",rating:"8.3",img:"https://image.tmdb.org/t/p/w500/w2c2s4o8q3J9p2v7L4X1M6N8.jpg",tag:"Popular"},
- {id:9,title:"Kantara",year:"2022",lang:"Kannada",genre:"Mystery",rating:"7.8",img:"https://image.tmdb.org/t/p/w500/x9m6b4J8f3s7D2q5T1N0L9K8.jpg",tag:"Mystic"},
- {id:10,title:"Premalu",year:"2024",lang:"Malayalam",genre:"Romance",rating:"7.7",img:"https://image.tmdb.org/t/p/w500/9X2x4a8s6d3f1g7h5j0k2l4m.jpg",tag:"Feel Good"},
- {id:11,title:"Spider-Man: Across the Spider-Verse",year:"2023",lang:"English",genre:"Animation",rating:"8.6",img:"https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",tag:"Visual"},
- {id:12,title:"Train to Busan",year:"2016",lang:"Korean",genre:"Horror",rating:"7.6",img:"https://image.tmdb.org/t/p/w500/vNVFt6dtcqnI7hqa6LFBUibuFiw.jpg",tag:"Cult"}
+const genreName = (id) => {
+  const found = GENRES.find((item) => String(item.id) === String(id));
+
+  return found ? found.name : "Movie";
+};
+
+/* =========================================================
+   DEMO MOVIES
+   Used only when TMDB is unavailable.
+========================================================= */
+
+const DEMO_MOVIES = [
+  {
+    id: "demo-1",
+    title: "Retro",
+    year: "2025",
+    lang: "Tamil",
+    genre: "Drama",
+    genreIds: [],
+    rating: 8.1,
+    img: "",
+    tag: "Trending",
+  },
+  {
+    id: "demo-2",
+    title: "Dragon",
+    year: "2025",
+    lang: "Tamil",
+    genre: "Comedy",
+    genreIds: [],
+    rating: 8.0,
+    img: "",
+    tag: "Popular",
+  },
+  {
+    id: "demo-3",
+    title: "Interstellar",
+    year: "2014",
+    lang: "English",
+    genre: "Sci-Fi",
+    genreIds: [878],
+    rating: 8.7,
+    img: "",
+    tag: "Classic",
+  },
+  {
+    id: "demo-4",
+    title: "Inception",
+    year: "2010",
+    lang: "English",
+    genre: "Sci-Fi",
+    genreIds: [878],
+    rating: 8.8,
+    img: "",
+    tag: "Top Rated",
+  },
 ];
 
-function getGenreName(ids=[]){
-  const entry=Object.entries(genreIds).find(([,id])=>ids.includes(id));
-  return entry?.[0] || "Movie";
-}
+/* =========================================================
+   TMDB MOVIE MAPPER
+========================================================= */
 
-function getLanguageName(code){
-  return languageNames[code] || code || "Other";
-}
+function mapTmdbMovie(movie) {
+  const genreIds = movie.genre_ids || [];
 
-function mapTmdbMovie(x){
   return {
-    id:x.id,
-    title:x.title || x.original_title || "Untitled",
-    year:x.release_date?.slice(0,4) || "",
-    lang:getLanguageName(x.original_language),
-    genre:getGenreName(x.genre_ids),
-    genreIds:x.genre_ids || [],
-    rating:x.vote_average != null ? x.vote_average.toFixed(1) : "—",
-    img:x.poster_path ? IMG+x.poster_path : "",
-    tag:"Discover"
+    id: movie.id,
+    title: movie.title || movie.original_title || "Untitled Movie",
+    year: movie.release_date
+      ? movie.release_date.substring(0, 4)
+      : "N/A",
+    lang: languageName(movie.original_language),
+    languageCode: movie.original_language || "",
+    genre:
+      genreIds.length > 0
+        ? genreName(genreIds[0])
+        : "Movie",
+    genreIds,
+    rating: Number(movie.vote_average || 0).toFixed(1),
+    img: movie.poster_path
+      ? `${TMDB_IMAGE_URL}${movie.poster_path}`
+      : "",
+    backdrop: movie.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}`
+      : "",
+    overview:
+      movie.overview ||
+      "No movie description is available.",
+    tag:
+      Number(movie.vote_average || 0) >= 8
+        ? "Top Rated"
+        : Number(movie.popularity || 0) > 100
+        ? "Trending"
+        : "Movie",
+    popularity: movie.popularity || 0,
   };
 }
 
-function App(){
- const [q,setQ]=useState("");
- const [lang,setLang]=useState("All");
- const [genre,setGenre]=useState("All");
- const [movies,setMovies]=useState(demo);
- const [loading,setLoading]=useState(false);
- const [error,setError]=useState("");
- const [selected,setSelected]=useState(null);
- const [watchlist,setWatchlist]=useState([]);
- const [hero,setHero]=useState(0);
+/* =========================================================
+   API HELPER
+========================================================= */
 
- useEffect(()=>{
-   const t=setInterval(()=>setHero(x=>(x+1)%demo.length),5000);
-   return()=>clearInterval(t)
- },[]);
-
- const filtered=useMemo(()=>{
-   const search=q.trim().toLowerCase();
-   return movies.filter(m=>
-     (lang==="All"||m.lang===lang) &&
-     (genre==="All"||m.genre===genre) &&
-     (!search||m.title.toLowerCase().includes(search))
-   )
- },[movies,lang,genre,q]);
-
- async function tmdb(){
-   if(!TMDB_TOKEN){
-     setError("TMDB token missing. Add VITE_TMDB_TOKEN to .env");
-     setMovies(demo);
-     return;
-   }
-
-   setLoading(true);
-   setError("");
-
-   try{
-     const params=new URLSearchParams({
-       include_adult:"false",
-       include_video:"false",
-       language:"en-US",
-       page:"1",
-       sort_by:"popularity.desc"
-     });
-
-    if(genre!=="All") {
-  params.set("with_genres", String(genreIds[genre]));
-}
-
-if(lang!=="All" && lang!=="Other") {
-  const langCode = languages.find(([name]) => name === lang)?.[1];
-
-  if(langCode) {
-    params.set("with_original_language", langCode);
+async function tmdbFetch(endpoint, params = {}) {
+  if (!TMDB_TOKEN) {
+    throw new Error(
+      "TMDB token not found. Please check your .env file."
+    );
   }
-}
 
-     const url=`https://api.themoviedb.org/3/discover/movie?${params.toString()}`;
-     const r=await fetch(url,{
-       headers:{
-         Authorization:`Bearer ${TMDB_TOKEN}`,
-         accept:"application/json"
-       }
-     });
+  const searchParams = new URLSearchParams(params);
 
-     if(!r.ok){
-       const body=await r.text();
-       throw new Error(`TMDB ${r.status}: ${body}`);
-     }
-
-     const d=await r.json();
-     setMovies((d.results||[]).map(mapTmdbMovie));
-  } catch(e){
-  console.error(e);
-  setError("TMDB connection failed. Showing demo movies.");
-  setMovies(demo);
-}finally{
-     setLoading(false);
-   }
- }
-
- async function searchMovies(){
-   if(!TMDB_TOKEN){
-     return;
-   }
-   const term=q.trim();
-   if(!term){
-     tmdb();
-     return;
-   }
-
-   setLoading(true);
-   setError("");
-   try{
-     const params=new URLSearchParams({
-       query:term,
-       include_adult:"false",
-       language:"en-US",
-       page:"1"
-     });
-     const r=await fetch(`https://api.themoviedb.org/3/search/movie?${params.toString()}`,{
-       headers:{Authorization:`Bearer ${TMDB_TOKEN}`,accept:"application/json"}
-     });
-     if(!r.ok) throw new Error(`TMDB ${r.status}`);
-     const d=await r.json();
-
-     let results=(d.results||[]).map(mapTmdbMovie);
-     if(lang!=="All") results=results.filter(m=>m.lang===lang);
-     if(genre!=="All") results=results.filter(m=>m.genre===genre);
-     setMovies(results);
-   }catch(e){
-     console.error(e);
-     setError("Movie search failed. Check your TMDB token.");
-     setMovies([]);
-   }finally{
-     setLoading(false);
-   }
- }
-
- useEffect(() => {
-  const timer = setTimeout(() => {
-    if (q.trim()) {
-      searchMovies();
-    } else {
-      tmdb();
+  const response = await fetch(
+    `${TMDB_BASE_URL}${endpoint}?${searchParams.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${TMDB_TOKEN}`,
+        accept: "application/json",
+      },
     }
-  }, 400);
+  );
 
-  return () => clearTimeout(timer);
-}, [q, lang, genre]);
+  if (!response.ok) {
+    let message = `TMDB API Error: ${response.status}`;
 
- const heroMovie=demo[hero];
- const toggleWatch=(id)=>setWatchlist(w=>w.includes(id)?w.filter(x=>x!==id):[...w,id]);
+    try {
+      const errorData = await response.json();
 
- return <div className="app">
-  <div className="grain"/>
-  <header className="nav">
-   <div className="brand"><span className="brand-mark">M</span><span>MOVIE <b>MAFIA</b></span></div>
-   <nav><a className="active">Discover</a><a>Movies</a><a>Collections</a><a>Watchlist <small>{watchlist.length}</small></a></nav>
-   <div className="nav-actions">
-    <div className="search"><Search size={18}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search movies..."/></div>
-    <button
-  className="icon-btn"
-  onClick={() =>
-    document.getElementById("discover")?.scrollIntoView({
-      behavior: "smooth"
-    })
+      if (errorData?.status_message) {
+        message = errorData.status_message;
+      }
+    } catch {
+      // Ignore JSON parse error
+    }
+
+    throw new Error(message);
   }
-  title="Open Filters"
->
-  <SlidersHorizontal size={19}/>
-</button>
-   </div>
-  </header>
 
-  <main>
-   <section className="hero">
-    <div className="hero-bg" style={{backgroundImage:`url(${heroMovie.img})`}}/>
-    <div className="hero-overlay"/>
-    <div className="hero-content">
-      <div className="eyebrow"><span/> YOUR NEXT OBSESSION</div>
-      <h1>Find movies<br/><em>that hit different.</em></h1>
-      <p>One place. Every language. Every genre. Discover films you'll want to talk about tomorrow.</p>
-      <div className="hero-buttons">
-        <button className="primary" onClick={()=>document.getElementById("discover").scrollIntoView({behavior:"smooth"})}><Compass size={18}/> Explore Movies</button>
-        <button className="ghost" onClick={()=>setSelected(heroMovie)}><Play size={17}/> Quick View</button>
+  return response.json();
+}
+
+/* =========================================================
+   APP
+========================================================= */
+
+function App() {
+  const [movies, setMovies] = useState(DEMO_MOVIES);
+
+  const [language, setLanguage] = useState("all");
+  const [genre, setGenre] = useState("all");
+  const [query, setQuery] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const [error, setError] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [selectedMovie, setSelectedMovie] = useState(null);
+
+  const [watchlist, setWatchlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem("movie-mafia-watchlist");
+
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [trailerKey, setTrailerKey] = useState("");
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [trailerTitle, setTrailerTitle] = useState("");
+
+  /* =======================================================
+     SAVE WATCHLIST
+  ======================================================= */
+
+  useEffect(() => {
+    localStorage.setItem(
+      "movie-mafia-watchlist",
+      JSON.stringify(watchlist)
+    );
+  }, [watchlist]);
+
+  /* =======================================================
+     WATCHLIST TOGGLE
+  ======================================================= */
+
+  const toggleWatchlist = (movie) => {
+    setWatchlist((current) => {
+      const exists = current.some(
+        (item) => String(item.id) === String(movie.id)
+      );
+
+      if (exists) {
+        return current.filter(
+          (item) => String(item.id) !== String(movie.id)
+        );
+      }
+
+      return [...current, movie];
+    });
+  };
+
+  const isInWatchlist = (movie) => {
+    return watchlist.some(
+      (item) => String(item.id) === String(movie.id)
+    );
+  };
+
+  /* =======================================================
+     DISCOVER MOVIES
+  ======================================================= */
+
+  const fetchDiscoverMovies = async (
+    targetPage = 1,
+    append = false
+  ) => {
+    if (!TMDB_TOKEN) {
+      setError(
+        "TMDB token is missing. Showing demo movies."
+      );
+
+      if (!append) {
+        setMovies(DEMO_MOVIES);
+      }
+
+      return;
+    }
+
+    try {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+
+      const params = {
+        include_adult: "false",
+        include_video: "true",
+        language: "en-US",
+        page: String(targetPage),
+        sort_by: "popularity.desc",
+      };
+
+      /* Genre filter */
+
+      if (genre !== "all") {
+        params.with_genres = String(genre);
+      }
+
+      /* Language filter */
+
+      if (language !== "all" && language !== "other") {
+        params.with_original_language = language;
+      }
+
+      /* Other languages */
+
+      if (language === "other") {
+        params.with_original_language = "";
+      }
+
+      const data = await tmdbFetch(
+        "/discover/movie",
+        params
+      );
+
+      const newMovies = (data.results || []).map(
+        mapTmdbMovie
+      );
+
+      if (append) {
+        setMovies((current) => {
+          const existingIds = new Set(
+            current.map((movie) => String(movie.id))
+          );
+
+          const uniqueNewMovies = newMovies.filter(
+            (movie) =>
+              !existingIds.has(String(movie.id))
+          );
+
+          return [...current, ...uniqueNewMovies];
+        });
+      } else {
+        setMovies(newMovies);
+      }
+
+      setPage(targetPage);
+      setTotalPages(data.total_pages || 1);
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err?.message ||
+          "Unable to load movies from TMDB."
+      );
+
+      if (!append) {
+        setMovies(DEMO_MOVIES);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  /* =======================================================
+     SEARCH MOVIES
+  ======================================================= */
+
+  const searchMovies = async (searchText) => {
+    if (!TMDB_TOKEN) {
+      setMovies(DEMO_MOVIES);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const params = {
+        query: searchText,
+        include_adult: "false",
+        language: "en-US",
+        page: "1",
+      };
+
+      if (
+        language !== "all" &&
+        language !== "other"
+      ) {
+        params.language = "en-US";
+      }
+
+      const data = await tmdbFetch(
+        "/search/movie",
+        params
+      );
+
+      let results = (data.results || []).map(
+        mapTmdbMovie
+      );
+
+      /* Client-side language filter */
+
+      if (
+        language !== "all" &&
+        language !== "other"
+      ) {
+        results = results.filter(
+          (movie) =>
+            movie.languageCode === language
+        );
+      }
+
+      /* Client-side genre filter */
+
+      if (genre !== "all") {
+        results = results.filter((movie) =>
+          movie.genreIds?.includes(Number(genre))
+        );
+      }
+
+      setMovies(results);
+      setPage(1);
+      setTotalPages(data.total_pages || 1);
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err?.message ||
+          "Unable to search movies."
+      );
+
+      setMovies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     FILTER / SEARCH EFFECT
+  ======================================================= */
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim()) {
+        searchMovies(query.trim());
+      } else {
+        fetchDiscoverMovies(1, false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, language, genre]);
+
+  /* =======================================================
+     LOAD MORE
+  ======================================================= */
+
+  const loadMoreMovies = () => {
+    if (
+      loadingMore ||
+      loading ||
+      page >= totalPages
+    ) {
+      return;
+    }
+
+    if (query.trim()) {
+      searchMovies(query.trim());
+    } else {
+      fetchDiscoverMovies(page + 1, true);
+    }
+  };
+
+  /* =======================================================
+     GET TRAILER
+  ======================================================= */
+
+  const openTrailer = async (movie) => {
+    if (!movie?.id) return;
+
+    /*
+      Demo movie doesn't have TMDB ID.
+    */
+
+    if (
+      typeof movie.id === "string" &&
+      movie.id.startsWith("demo-")
+    ) {
+      alert(
+        "Trailer is available for TMDB movies. Please use a movie loaded from TMDB."
+      );
+
+      return;
+    }
+
+    try {
+      setTrailerLoading(true);
+      setTrailerTitle(movie.title);
+      setTrailerKey("");
+
+      const data = await tmdbFetch(
+        `/movie/${movie.id}/videos`,
+        {
+          language: "en-US",
+        }
+      );
+
+      const videos = data.results || [];
+
+      /*
+        Priority:
+        1. Official Trailer
+        2. Trailer
+        3. Official Teaser
+        4. Teaser
+        5. Any YouTube video
+      */
+
+      const youtubeVideos = videos.filter(
+        (video) =>
+          video.site === "YouTube" &&
+          video.key
+      );
+
+      const officialTrailer =
+        youtubeVideos.find(
+          (video) =>
+            video.type === "Trailer" &&
+            video.official === true
+        );
+
+      const normalTrailer =
+        youtubeVideos.find(
+          (video) =>
+            video.type === "Trailer"
+        );
+
+      const officialTeaser =
+        youtubeVideos.find(
+          (video) =>
+            video.type === "Teaser" &&
+            video.official === true
+        );
+
+      const normalTeaser =
+        youtubeVideos.find(
+          (video) =>
+            video.type === "Teaser"
+        );
+
+      const selectedVideo =
+        officialTrailer ||
+        normalTrailer ||
+        officialTeaser ||
+        normalTeaser ||
+        youtubeVideos[0];
+
+      if (selectedVideo) {
+        setTrailerKey(selectedVideo.key);
+      } else {
+        alert(
+          "Trailer is not available for this movie."
+        );
+      }
+    } catch (err) {
+      console.error(err);
+
+      alert(
+        "Unable to load trailer. Please try again."
+      );
+    } finally {
+      setTrailerLoading(false);
+    }
+  };
+
+  /* =======================================================
+     CLOSE TRAILER
+  ======================================================= */
+
+  const closeTrailer = () => {
+    setTrailerKey("");
+    setTrailerTitle("");
+  };
+
+  /* =======================================================
+     HERO MOVIES
+  ======================================================= */
+
+  const heroMovies = useMemo(() => {
+    if (movies.length > 0) {
+      return movies.slice(0, 3);
+    }
+
+    return DEMO_MOVIES;
+  }, [movies]);
+
+  const heroMovie = heroMovies[0];
+
+  /* =======================================================
+     RETURN UI
+  ======================================================= */
+
+  return (
+    <div className="app">
+      {/* ===================================================
+          NAVBAR
+      =================================================== */}
+
+      <header className="navbar">
+        <div className="brand">
+          <div className="brand-mark">
+            M
+          </div>
+
+          <div>
+            <div className="brand-name">
+              MOVIE MAFIA
+            </div>
+
+            <div className="brand-sub">
+              DISCOVER · WATCH · REPEAT
+            </div>
+          </div>
+        </div>
+
+        <div className="nav-watchlist">
+          <Heart size={17} />
+
+          <span>
+            {watchlist.length}
+          </span>
+        </div>
+      </header>
+
+      {/* ===================================================
+          HERO
+      =================================================== */}
+
+      <section className="hero">
+        <div className="hero-content">
+          <div className="eyebrow">
+            <span className="eyebrow-dot" />
+            YOUR PERSONAL MOVIE UNIVERSE
+          </div>
+
+          <h1>
+            FIND YOUR NEXT
+            <span> OBSESSION.</span>
+          </h1>
+
+          <p>
+            Discover movies from around the world.
+            Search by language, genre, rating and
+            popularity — all in one place.
+          </p>
+
+          {/* SEARCH */}
+
+          <div className="search-box">
+            <Search size={20} />
+
+            <input
+              type="text"
+              placeholder="Search for a movie..."
+              value={query}
+              onChange={(e) =>
+                setQuery(e.target.value)
+              }
+            />
+
+            {query && (
+              <button
+                className="clear-search"
+                onClick={() => setQuery("")}
+              >
+                <X size={17} />
+              </button>
+            )}
+          </div>
+
+          {/* FILTERS */}
+
+          <div className="filters">
+            <div className="select-wrap">
+              <select
+                value={language}
+                onChange={(e) =>
+                  setLanguage(e.target.value)
+                }
+              >
+                {LANGUAGES.map((item) => (
+                  <option
+                    key={item.code}
+                    value={item.code}
+                  >
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown size={16} />
+            </div>
+
+            <div className="select-wrap">
+              <select
+                value={genre}
+                onChange={(e) =>
+                  setGenre(e.target.value)
+                }
+              >
+                {GENRES.map((item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown size={16} />
+            </div>
+          </div>
+        </div>
+
+        {/* HERO POSTER */}
+
+        <div className="hero-poster-area">
+          {heroMovie?.img ? (
+            <img
+              src={heroMovie.img}
+              alt={heroMovie.title}
+              className="hero-poster"
+            />
+          ) : (
+            <div className="hero-placeholder">
+              <Clapperboard size={50} />
+            </div>
+          )}
+
+          <div className="hero-floating-card">
+            <div className="hero-rating">
+              <Star
+                size={15}
+                fill="currentColor"
+              />
+
+              {heroMovie?.rating || "8.0"}
+            </div>
+
+            <strong>
+              {heroMovie?.title ||
+                "Movie Mafia"}
+            </strong>
+
+            <span>
+              {heroMovie?.year || "2025"} ·{" "}
+              {heroMovie?.lang || "Worldwide"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================================================
+          ERROR
+      =================================================== */}
+
+      {error && (
+        <div className="error-banner">
+          {error}
+        </div>
+      )}
+
+      {/* ===================================================
+          MOVIE SECTION
+      =================================================== */}
+
+      <main className="movie-section">
+        <div className="section-header">
+          <div>
+            <div className="section-kicker">
+              EXPLORE
+            </div>
+
+            <h2>
+              {query
+                ? `Results for "${query}"`
+                : "Trending Movies"}
+            </h2>
+          </div>
+
+          <div className="movie-count">
+            {movies.length} movies
+          </div>
+        </div>
+
+        {/* LOADING */}
+
+        {loading ? (
+          <div className="loading-state">
+            <Loader2
+              size={34}
+              className="spin"
+            />
+
+            <p>
+              Discovering movies...
+            </p>
+          </div>
+        ) : movies.length === 0 ? (
+          <div className="empty-state">
+            <Clapperboard size={40} />
+
+            <h3>
+              No movies found
+            </h3>
+
+            <p>
+              Try another movie name,
+              language or genre.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* MOVIE GRID */}
+
+            <div className="grid">
+              {movies.map((movie) => (
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  inWatchlist={isInWatchlist(
+                    movie
+                  )}
+                  onWatchlist={() =>
+                    toggleWatchlist(movie)
+                  }
+                  onOpen={() =>
+                    setSelectedMovie(movie)
+                  }
+                  onTrailer={() =>
+                    openTrailer(movie)
+                  }
+                />
+              ))}
+            </div>
+
+            {/* LOAD MORE */}
+
+            {!query && page < totalPages && (
+              <div className="load-more-area">
+                <button
+                  className="load-more"
+                  onClick={loadMoreMovies}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2
+                        size={18}
+                        className="spin"
+                      />
+
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} />
+
+                      Load More Movies
+                    </>
+                  )}
+                </button>
+
+                <span>
+                  Page {page} of{" "}
+                  {Math.min(totalPages, 500)}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* ===================================================
+          MOVIE DETAILS MODAL
+      =================================================== */}
+
+      {selectedMovie && (
+        <div
+          className="modal"
+          onClick={() =>
+            setSelectedMovie(null)
+          }
+        >
+          <div
+            className="modal-box"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <button
+              className="modal-close"
+              onClick={() =>
+                setSelectedMovie(null)
+              }
+            >
+              <X size={20} />
+            </button>
+
+            <div className="modal-content">
+              <div className="modal-poster-wrap">
+                {selectedMovie.img ? (
+                  <img
+                    src={selectedMovie.img}
+                    alt={
+                      selectedMovie.title
+                    }
+                    className="modal-poster"
+                  />
+                ) : (
+                  <div className="modal-poster-placeholder">
+                    <Clapperboard
+                      size={40}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-info">
+                <div className="modal-tag">
+                  {selectedMovie.tag}
+                </div>
+
+                <h2>
+                  {selectedMovie.title}
+                </h2>
+
+                <div className="modal-meta">
+                  <span>
+                    {selectedMovie.year}
+                  </span>
+
+                  <span>•</span>
+
+                  <span>
+                    {selectedMovie.lang}
+                  </span>
+
+                  <span>•</span>
+
+                  <span>
+                    {selectedMovie.genre}
+                  </span>
+
+                  <span>•</span>
+
+                  <span className="rating">
+                    <Star
+                      size={14}
+                      fill="currentColor"
+                    />
+
+                    {selectedMovie.rating}
+                  </span>
+                </div>
+
+                <p className="overview">
+                  {selectedMovie.overview ||
+                    "No description available."}
+                </p>
+
+                <div className="modal-actions">
+                  <button
+                    className="primary-btn"
+                    onClick={() =>
+                      openTrailer(
+                        selectedMovie
+                      )
+                    }
+                  >
+                    <Play
+                      size={18}
+                      fill="currentColor"
+                    />
+
+                    Watch Trailer
+                  </button>
+
+                  <button
+                    className={
+                      isInWatchlist(
+                        selectedMovie
+                      )
+                        ? "secondary-btn active"
+                        : "secondary-btn"
+                    }
+                    onClick={() =>
+                      toggleWatchlist(
+                        selectedMovie
+                      )
+                    }
+                  >
+                    <Heart
+                      size={18}
+                      fill={
+                        isInWatchlist(
+                          selectedMovie
+                        )
+                          ? "currentColor"
+                          : "none"
+                      }
+                    />
+
+                    {isInWatchlist(
+                      selectedMovie
+                    )
+                      ? "In Watchlist"
+                      : "Add to Watchlist"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================
+          TRAILER MODAL
+      =================================================== */}
+
+      {(trailerLoading || trailerKey) && (
+        <div
+          className="trailer-modal"
+          onClick={closeTrailer}
+        >
+          <div
+            className="trailer-box"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <button
+              className="trailer-close"
+              onClick={closeTrailer}
+            >
+              <X size={22} />
+            </button>
+
+            {trailerLoading ? (
+              <div className="trailer-loading">
+                <Loader2
+                  size={42}
+                  className="spin"
+                />
+
+                <p>
+                  Loading trailer...
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="trailer-header">
+                  <div>
+                    <span>
+                      TRAILER
+                    </span>
+
+                    <h3>
+                      {trailerTitle}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="video-wrapper">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0`}
+                    title={`${trailerTitle} Trailer`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   MOVIE CARD
+========================================================= */
+
+function MovieCard({
+  movie,
+  inWatchlist,
+  onWatchlist,
+  onOpen,
+  onTrailer,
+}) {
+  return (
+    <article className="movie-card">
+      <div
+        className="poster-wrap"
+        onClick={onOpen}
+      >
+        {movie.img ? (
+          <img
+            src={movie.img}
+            alt={movie.title}
+            className="poster"
+            loading="lazy"
+          />
+        ) : (
+          <div className="poster-placeholder">
+            <Clapperboard size={35} />
+          </div>
+        )}
+
+        <div className="poster-overlay" />
+
+        <div className="movie-tag">
+          {movie.tag}
+        </div>
+
+        {/* WATCHLIST */}
+
+        <button
+          className={
+            inWatchlist
+              ? "heart-btn active"
+              : "heart-btn"
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            onWatchlist();
+          }}
+          aria-label="Add to watchlist"
+        >
+          <Heart
+            size={17}
+            fill={
+              inWatchlist
+                ? "currentColor"
+                : "none"
+            }
+          />
+        </button>
+
+        {/* TRAILER */}
+
+        <button
+          className="play"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTrailer();
+          }}
+          aria-label={`Play trailer for ${movie.title}`}
+        >
+          <Play
+            size={20}
+            fill="currentColor"
+          />
+        </button>
       </div>
-    </div>
-    <div className="hero-card"><span className="vertical">FEATURED TONIGHT</span><img src={heroMovie.img}/><div><b>{heroMovie.title}</b><small>{heroMovie.year} • {heroMovie.genre} • ★ {heroMovie.rating}</small></div></div>
-    <div className="hero-dots">{demo.slice(0,6).map((_,i)=><button key={i} className={i===hero%6?"dot on":"dot"} onClick={()=>setHero(i)}/>)}</div>
-   </section>
 
-   <section className="discover" id="discover">
-    <div className="section-head"><div><span className="kicker">THE MAFIA VAULT</span><h2>Pick your <span>poison.</span></h2></div><p>Tell us what you're in the mood for.<br/>We'll handle the rabbit hole.</p></div>
+      <div className="movie-info">
+        <h3 title={movie.title}>
+          {movie.title}
+        </h3>
 
-    <div className="filters">
-      <div className="filter-title"><Languages size={17}/> LANGUAGE</div>
-      <div className="chips">{languages.map(([name])=><button key={name} className={lang===name?"chip active":"chip"} onClick={()=>setLang(name)}>{name}</button>)}</div>
-    </div>
+        <div className="movie-meta">
+          <span>
+            {movie.year}
+          </span>
 
-    <div className="filters genre-filter">
-      <div className="filter-title"><Clapperboard size={17}/> GENRE</div>
-      <div className="chips">{genres.map(name=><button key={name} className={genre===name?"chip active":"chip"} onClick={()=>setGenre(name)}>{name}</button>)}</div>
-    </div>
+          <span className="dot">
+            •
+          </span>
 
-    <div className="results-head">
-      <div><span className="kicker">CURATED FOR YOU</span><h3>{lang==="All"?"All Languages":lang} <span>·</span> {genre}</h3></div>
-      <span className="count">{loading?"Loading…":`${filtered.length} titles`}</span>
-    </div>
+          <span>
+            {movie.lang}
+          </span>
 
-    {error&&<div className="empty" style={{padding:"20px",marginBottom:"20px"}}>{error}</div>}
+          <span className="rating">
+            <Star
+              size={12}
+              fill="currentColor"
+            />
 
-    <div className="grid">{filtered.map(m=><MovieCard key={m.id} m={m} liked={watchlist.includes(m.id)} onLike={()=>toggleWatch(m.id)} onOpen={()=>setSelected(m)}/>)}</div>
-    {!loading&&!filtered.length&&!error&&<div className="empty">No titles found. Try another language, genre, or search.</div>}
-   </section>
-  </main>
+            {movie.rating}
+          </span>
+        </div>
 
-  <footer><div className="brand"><span className="brand-mark">M</span><span>MOVIE <b>MAFIA</b></span></div><span>© 2026 Movie Mafia • Discover responsibly.</span></footer>
-
-  {selected&&<div className="modal" onClick={()=>setSelected(null)}>
-    <div className="modal-box" onClick={e=>e.stopPropagation()}>
-      <button className="close" onClick={()=>setSelected(null)}><X/></button>
-      {selected.img?<img src={selected.img} onError={e=>{e.currentTarget.style.display="none"}}/>:<div className="poster-fallback"><Film size={36}/></div>}
-      <div className="modal-info"><span className="pill">{selected.tag||"DISCOVER"}</span><h2>{selected.title}</h2><p>{selected.year} • {selected.lang} • {selected.genre} • ★ {selected.rating}</p><p className="muted">Explore this title and discover more films from the same language and genre.</p><button className="primary" onClick={()=>toggleWatch(selected.id)}>{watchlist.includes(selected.id)?<Heart fill="currentColor"/>:<Plus/>}{watchlist.includes(selected.id)?" In Watchlist":" Add to Watchlist"}</button></div>
-    </div>
-  </div>}
- </div>
+        <div className="movie-genre">
+          {movie.genre}
+        </div>
+      </div>
+    </article>
+  );
 }
 
-function MovieCard({m,liked,onLike,onOpen}){
- return <article className="movie-card" onClick={onOpen}>
-   <div className="poster">
-     {m.img?<img src={m.img} onError={e=>{e.currentTarget.style.display="none"}}/>:<div className="poster-fallback"><Film size={36}/></div>}
-     <span className="tag">{m.tag||"MOVIE"}</span>
-     <button className="heart" onClick={e=>{e.stopPropagation();onLike()}}>{liked?<Heart fill="currentColor" size={17}/>:<Heart size={17}/>}</button>
-     <div className="play"><Play fill="currentColor" size={18}/></div>
-   </div>
-   <div className="movie-meta"><div><h4>{m.title}</h4><p>{m.year} <span/> {m.lang} <span/> {m.genre}</p></div><b className="rating"><Star fill="currentColor" size={13}/> {m.rating||"—"}</b></div>
- </article>
-}
+/* =========================================================
+   RENDER
+========================================================= */
 
-createRoot(document.getElementById("root")).render(<App/>);
+createRoot(
+  document.getElementById("root")
+).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
